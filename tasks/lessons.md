@@ -81,6 +81,15 @@ Do not skip the reflection. A blank reflection looks like the agent forgot.
 **Rule:** Run a MSVC build locally (or push to `agent/ci-testing`) before declaring any module "complete" — MSVC's stricter conformance exposes latent bugs that GCC/Clang silently accept.
 **Affected areas:** `src/core/emulator.cpp`, `src/core/audio/audio.cpp`, `src/frontend/libretro/libretro_core.cpp`, all future `.cpp` files.
 
+## Lesson 4 — 2026-04-16 — Impact: 8 / HIGH
+**Source:** CORRECTION (Daniel caught this)
+**Agent:** trident-agent-ci-testing / agent/ci-testing
+**What happened:** A smoke test (`tests/test_memory.cpp`, 32-bit read/write case) called `mem->init()` without asserting the return value, which can hide setup failures and produce misleading downstream assertions.
+**Root cause:** I treated repeated test setup calls as boilerplate and failed to enforce explicit success checks consistently in each test case.
+**Fix:** Updated the test to use `REQUIRE(mem->init() == true);` so initialization failure is surfaced immediately at setup.
+**Rule:** Every test setup call that returns a status (`init()`, `load()`, etc.) must be asserted with `REQUIRE` before continuing.
+**Affected areas:** `tests/test_memory.cpp`, `tests/test_cpu.cpp`, and future smoke/integration tests.
+
 ---
 
 > **Note to agents:** An empty lessons file means the project is new, not that there's nothing to learn.

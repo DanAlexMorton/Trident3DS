@@ -69,13 +69,11 @@ This section is a single source of truth for the current state of every module.
 | Services | `src/core/services/service_manager.cpp` | 🟡 Skeleton | Initial scaffold | 28 services registered; none handle IPC |
 | AI Upscaler | `src/core/ai/texture_upscaler.cpp` | 🟡 Stub | Initial scaffold | Nearest-neighbour fallback only |
 | libretro frontend | `src/frontend/libretro/libretro_core.cpp` | ✅ Complete | Initial scaffold | Full retro_* API, RA memory map |
-| CI | `.github/workflows/` | ✅ Complete | agent/ci-testing | build.yml on 3 platforms; Catch2 tests wired; 15 tests pass |
+| CI | `.github/workflows/` | ✅ Complete | agent/ci-testing | build.yml on 3 platforms; Catch2 tests wired; follow-up test assertion fix applied |
 
 ---
 
 ## Context Log
-
-*(No entries yet — this project is just starting. The first entry will be written when Phase 1 agents complete their tasks.)*
 
 ## P1-CI — GitHub Actions CI + Smoke Tests
 **Date:** 2026-04-17
@@ -117,6 +115,26 @@ Also fixed three pre-existing build-blocking bugs in scaffolded code (not in CI 
 - No integration test with a real `.3dsx` binary (blocked until CPU + Loader agents merge).
 - No test coverage reporting (Phase 2 tooling).
 - macOS/Linux local verification not possible from this machine; rely on CI for cross-platform confirmation.
+
+## P1-CI Follow-up — Reviewer-requested test assertion
+**Date:** 2026-04-16
+**Agent:** trident-agent-ci-testing / agent/ci-testing
+**Phase:** 1
+
+### What was built
+- Updated `tests/test_memory.cpp` in the 32-bit round-trip test to assert initialization success explicitly: `REQUIRE(mem->init() == true);`.
+
+### Why this approach
+- Reviewer feedback requested explicit setup assertion to fail fast on initialization issues instead of allowing cascading failures later in the test body.
+
+### Current module state
+- CI tests: working structure; memory smoke test setup now has explicit init assertion in the touched case.
+
+### What the next agent needs to know
+- Keep init/load setup checks explicit in smoke tests (`REQUIRE(...)`) even when setup is repetitive.
+
+### What was explicitly left out
+- No broader refactor of all existing test setup calls in this follow-up, since scope was limited to the referenced review thread.
 
 
 ---

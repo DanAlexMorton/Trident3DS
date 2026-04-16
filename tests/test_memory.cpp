@@ -44,7 +44,7 @@ TEST_CASE("Memory: read/write round-trip 16-bit", "[memory]") {
 
 TEST_CASE("Memory: read/write round-trip 32-bit", "[memory]") {
     auto mem = std::make_unique<Memory>();
-    mem->init();
+    REQUIRE(mem->init() == true);
 
     mem->mapPages(VADDR_CODE_START, mem->getFCRAM(), PAGE_SIZE, PageFlags::ReadWrite);
 
