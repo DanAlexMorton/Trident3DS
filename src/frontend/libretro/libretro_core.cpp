@@ -162,7 +162,7 @@ void retro_reset(void) {
 bool retro_load_game(const struct retro_game_info* game) {
     if (!game || !game->path) return false;
 
-    enum retro_pixel_format fmt = RETRO_PIXEL_FORMAT_XRGB8888;
+    unsigned fmt = RETRO_PIXEL_FORMAT_XRGB8888;
     envCb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt);
 
     // Initialize subsystems
