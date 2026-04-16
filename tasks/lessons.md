@@ -54,7 +54,16 @@ Do not skip the reflection. A blank reflection looks like the agent forgot.
 
 ## Lessons
 
-*(No lessons yet — this project is just starting. The first reflection will be added when Phase 1 agents complete their first tasks.)*
+## Lesson 1 — 2026-04-17 — Impact: 6 / MEDIUM
+**Source:** REFLECTION (agent self-reported)
+**Agent:** agent/kernel-hle
+**What happened:** The overall `cmake --build` fails with errors in `audio.cpp` (missing `<algorithm>` for `std::min`) and `emulator.cpp` (calls to non-existent `Patcher::readFile`/`applyPatch`, broken `memcpy` with 2 args). These are pre-existing scaffold errors unrelated to the Kernel agent's changes.
+**Root cause:** The initial scaffold was generated with stub code that doesn't compile on Windows/MSVC — `std::min` requires `<algorithm>`, `memcpy` requires 3 arguments, and `Patcher::readFile` was never declared in `patcher.hpp`.
+**Fix:** The Kernel agent's `kernel.cpp` compiled cleanly (verified via IDE diagnostics and selective build output). The pre-existing errors will need to be fixed by the agent that owns those files (CI agent or emulator.cpp owner) before Phase 1 integration.
+**Rule:** Always verify your specific file compiles without errors using IDE diagnostics (`get_errors`) — don't rely on the overall build exit code when there are known pre-existing failures in other files.
+**Affected areas:** `src/core/audio/audio.cpp`, `src/core/emulator.cpp` — both need a fix before Phase 1 integration can succeed.
+
+Reflection 1 — 2026-04-17 — agent/kernel-hle — See Lesson 1 above. `svcBreak` and all required SVCs implemented cleanly. `<cstdio>` header was missing from the scaffold and had to be added.
 
 ---
 
