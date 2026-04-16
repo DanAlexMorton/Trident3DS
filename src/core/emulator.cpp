@@ -1,5 +1,7 @@
 #include "emulator.hpp"
+#include <algorithm>
 #include <cstring>
+#include <fstream>
 
 namespace Trident {
 
@@ -86,16 +88,21 @@ bool Emulator::loadROM(const std::string& path) {
 }
 
 bool Emulator::applyPatch(const std::string& patchPath, const std::string& romPath) {
-    auto romData = Patcher::readFile(romPath);
-    if (romData.empty()) return false;
+    // Read ROM file from disk
+    std::ifstream romFile(romPath, std::ios::binary | std::ios::ate);
+    if (!romFile.is_open()) return false;
+    auto fileSize = romFile.tellg();
+    romFile.seekg(0);
+    std::vector<uint8_t> romData(static_cast<size_t>(fileSize));
+    romFile.read(reinterpret_cast<char*>(romData.data()), fileSize);
 
-    auto result = Patcher::applyPatch(patchPath, romData);
-    if (!result.success) return false;
+    // Apply patch in-place using the Patcher API
+    if (!Patcher::apply(romData, patchPath)) return false;
 
-    // Write patched data back to memory at code start
-    size_t copySize = std::min(result.data.size(),
-                                static_cast<size_t>(VADDR_CODE_END - VADDR_CODE_START));
-    std::memcpy(memory->getFCRAM(), result.data.data(), copySize);
+    // Write patched data back to FCRAM at code start
+    size_t copySize = std::min(romData.size(),
+                               static_cast<size_t>(VADDR_CODE_END - VADDR_CODE_START));
+    std::memcpy(memory->getFCRAM(), romData.data(), copySize);
     return true;
 }
 

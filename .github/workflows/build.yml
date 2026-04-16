@@ -1,0 +1,29 @@
+name: Build
+
+on:
+  push:
+    branches: ['main', 'agent/**']
+  pull_request:
+    branches: ['main']
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DTRIDENT_USE_DYNARMIC=ON
+
+      - name: Build
+        run: cmake --build build --config Release -j4
+
+      - name: Test
+        run: ctest --test-dir build --build-config Release --output-on-failure
