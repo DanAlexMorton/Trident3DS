@@ -126,6 +126,28 @@ install(TARGETS trident_libretro
     RUNTIME DESTINATION bin
 )
 
+# Testing
+include(CTest)
+if(BUILD_TESTING)
+    # Force Catch2 to build as a static library. The project sets BUILD_SHARED_LIBS=ON
+    # for the libretro core, but a shared Catch2 DLL causes the test discovery launcher
+    # to fail with "DLL not found" (0xc0000135) on Windows.
+    set(_saved_build_shared_libs "${BUILD_SHARED_LIBS}")
+    set(BUILD_SHARED_LIBS OFF)
+
+    include(FetchContent)
+    FetchContent_Declare(
+        Catch2
+        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+        GIT_TAG        v3.4.0
+    )
+    FetchContent_MakeAvailable(Catch2)
+
+    set(BUILD_SHARED_LIBS "${_saved_build_shared_libs}")
+
+    add_subdirectory(tests)
+endif()
+
 message(STATUS "Trident3DS v${PROJECT_VERSION}")
 message(STATUS "  Platform: ${CMAKE_SYSTEM_NAME}")
 message(STATUS "  Dynarmic: ${TRIDENT_USE_DYNARMIC}")
