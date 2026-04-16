@@ -1,5 +1,8 @@
 #include "emulator.hpp"
+#include <algorithm>
 #include <cstring>
+#include <fstream>
+#include <iterator>
 
 namespace Trident {
 
@@ -86,16 +89,19 @@ bool Emulator::loadROM(const std::string& path) {
 }
 
 bool Emulator::applyPatch(const std::string& patchPath, const std::string& romPath) {
-    auto romData = Patcher::readFile(romPath);
+    // Read original ROM from disk
+    std::ifstream f(romPath, std::ios::binary);
+    if (!f) return false;
+    std::vector<uint8_t> romData(std::istreambuf_iterator<char>(f), {});
     if (romData.empty()) return false;
 
-    auto result = Patcher::applyPatch(patchPath, romData);
-    if (!result.success) return false;
+    // Apply patch in-place
+    if (!Patcher::apply(romData, patchPath)) return false;
 
     // Write patched data back to memory at code start
-    size_t copySize = std::min(result.data.size(),
-                                static_cast<size_t>(VADDR_CODE_END - VADDR_CODE_START));
-    std::memcpy(memory->getFCRAM(), result.data.data(), copySize);
+    size_t copySize = std::min(romData.size(),
+                               static_cast<size_t>(VADDR_CODE_END - VADDR_CODE_START));
+    std::memcpy(memory->getFCRAM(), romData.data(), copySize);
     return true;
 }
 

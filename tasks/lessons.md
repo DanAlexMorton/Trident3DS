@@ -54,7 +54,27 @@ Do not skip the reflection. A blank reflection looks like the agent forgot.
 
 ## Lessons
 
-*(No lessons yet — this project is just starting. The first reflection will be added when Phase 1 agents complete their first tasks.)*
+---
+
+## Lesson 1 — 2026-04-17 — Impact: 8 / HIGH
+**Source:** REFLECTION
+**Agent:** agent/cpu-jit
+**What happened:** Dynarmic needs Boost (boost/icl and boost/variant) but Boost is not bundled and not documented as a prerequisite. The project docs said "CMakeLists.txt already links it — no CMake changes needed", implying zero setup was required. In reality, cmake configure fails with "Could NOT find Boost" and the submodule starts empty.
+**Root cause:** The PLAN.md and agent brief were written assuming a developer environment where Boost is pre-installed. On a clean machine it is not present.
+**Fix:** 1) Run `git submodule update --init --recursive` before building. 2) Download or install Boost and pass `-DBOOST_ROOT=<path>` to cmake. The modular boost cmake zip from GitHub releases needs to be flattened — all `libs/<name>/include/` subdirs merged into one directory. 3) Set `BUILD_SHARED_LIBS=OFF` (or fix in CMakeLists) — Dynarmic does not export DLL symbols so it must be static.
+**Rule:** When initialising this project on a new machine: run `git submodule update --init --recursive`, then install Boost headers and pass `BOOST_ROOT` to cmake. Do not assume cmake "just works" out of the box.
+**Affected areas:** `third_party/dynarmic/`, `CMakeLists.txt`, any CI configuration
+
+---
+
+## Lesson 2 — 2026-04-17 — Impact: 5 / MEDIUM
+**Source:** REFLECTION
+**Agent:** agent/cpu-jit
+**What happened:** `BUILD_SHARED_LIBS=ON` (the top-level default) caused Dynarmic to be built as a `.dll` without an import `.lib` file, making the final link fail with `LNK1104: cannot open file 'dynarmic.lib'`. The fix was to force `BUILD_SHARED_LIBS OFF` before `add_subdirectory(third_party/dynarmic)`.
+**Root cause:** MSVC only generates a `.lib` import library for a DLL if the DLL exports symbols via `__declspec(dllexport)`. Dynarmic does not do this — it is designed as a static library. Inheriting `BUILD_SHARED_LIBS=ON` from the parent scope made it build as a broken DLL.
+**Fix:** Added `set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)` immediately before `add_subdirectory(third_party/dynarmic)`. The `trident_libretro` target uses `add_library(... SHARED ...)` explicitly so it is unaffected by this global flag.
+**Rule:** Any third-party library that does not export symbols must have `BUILD_SHARED_LIBS` forced OFF before its `add_subdirectory()` call, regardless of the project-level default.
+**Affected areas:** `CMakeLists.txt`, `third_party/dynarmic/`
 
 ---
 

@@ -6,7 +6,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Build options
-option(BUILD_SHARED_LIBS "Build as shared library" ON)
 option(TRIDENT_USE_DYNARMIC "Use Dynarmic for CPU emulation" ON)
 option(TRIDENT_ENABLE_AI "Enable AI texture upscaling" OFF)
 
@@ -66,6 +65,8 @@ if(TRIDENT_USE_DYNARMIC)
     if(EXISTS "${CMAKE_SOURCE_DIR}/third_party/dynarmic/CMakeLists.txt")
         set(DYNARMIC_TESTS OFF CACHE BOOL "" FORCE)
         set(DYNARMIC_FRONTENDS "A32" CACHE STRING "" FORCE)
+        # Dynarmic must be static — it doesn't export symbols for a DLL import lib
+        set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
         add_subdirectory(third_party/dynarmic)
         target_link_libraries(trident_core PUBLIC dynarmic)
         target_compile_definitions(trident_core PUBLIC TRIDENT_USE_DYNARMIC)
