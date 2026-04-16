@@ -61,7 +61,7 @@ This section is a single source of truth for the current state of every module.
 |--------|------|--------|-----------------|-------|
 | Memory bus | `src/core/memory/memory.cpp` | ✅ Complete | Initial scaffold | Page-table VM, all widths, RA regions |
 | ROM Patcher | `src/core/patcher/patcher.cpp` | ✅ Complete | Initial scaffold | IPS, UPS, BPS with CRC32 |
-| Loader | `src/core/loader/loader.cpp` | 🟡 Partial | Initial scaffold | Format detection done; 3DSX and NCCH body not implemented |
+| Loader | `src/core/loader/loader.cpp` | ✅ Complete (Phase 1) | agent/loader | 3DSX and NCCH ExeFS loading implemented; ELF stub unchanged |
 | CPU | `src/core/cpu/cpu.cpp` | 🔴 Stub | Initial scaffold | Dynarmic not instantiated; run() returns 0 |
 | Kernel | `src/core/kernel/kernel.cpp` | 🔴 Stub | Initial scaffold | handleSVC() exists but does nothing |
 | GPU | `src/core/gpu/gpu.cpp` | 🔴 Stub | Initial scaffold | No PICA200 commands processed |
@@ -76,6 +76,58 @@ This section is a single source of truth for the current state of every module.
 ## Context Log
 
 *(No entries yet — this project is just starting. The first entry will be written when Phase 1 agents complete their tasks.)*
+
+---
+
+## P1-LDR — Complete the Loader
+**Date:** 2026-04-17
+**Agent:** trident-agent-loader / agent/loader
+**Phase:** 1
+
+### What was built
+`src/core/loader/loader.cpp` — two functions replaced:
+
+- **`load3DSX()`** — full implementation:
+  - Parses main header (headerSize, codeSize, rodataSize, bssSize, dataSize)
+  - Reads 3 × `RelocHeader` structs at `data[headerSize]` (12 bytes each: numAbs, numRel, reserved)
+  - Computes page-aligned load addresses: code @ `0x00100000`, rodata @ next 4 KB boundary, data @ next 4 KB boundary
+  - Maps FCRAM pages with `Memory::mapPages` (code = `PageFlags::All`, data/rodata = `ReadWrite`)
+  - Copies segment bytes with `Memory::writeBlock`; BSS tail stays zero from `Memory::init()`
+  - Applies 3 × 2 relocation tables (ABS then REL per segment). Each entry = `{skip:16, patch:16}`. Word encoding: `tSeg = word >> 28`, `tOfs = word & 0x0FFFFFFF`. ABS: `segBase[tSeg] + tOfs`. REL: `(segBase[tSeg] + tOfs) - patch_addr`
+  - Returns `{ success=true, entryPoint=0x00100000 }`
+
+- **`loadNCCH()`** — ExeFS parsing added:
+  - Reads ExeFS offset from **NCCH+0x180** (u32, in media units × 0x200). NOTE: the brief said 0x1A0 — that is wrong; 0x1A0 is the RomFS size field. See Lesson 1.
+  - Scans 8 ExeFS file entries searching for `".code\0\0\0"` (8-byte name)
+  - Loads `.code` bytes at `VADDR_CODE_START` (0x00100000) via `mapPages` + `writeBlock`
+  - Comment: `// TODO(Phase 2): add LZ11 decompression for compressed .code sections`
+  - Returns `{ success=true, entryPoint=0x00100000, programId }`
+
+No other files were modified. `loader.hpp` is unchanged.
+
+### Why this approach
+- **mapPages + writeBlock over direct memcpy:** The Memory API uses a page table; bypassing it (writing directly to `getFCRAM()`) would leave the page table empty and future reads via `read32/readBlock` would return zero. Going through the public API keeps the virtual address space consistent.
+- **FCRAM at VADDR_CODE_START offset 0:** We map virtual 0x00100000 → `fcram[0]`. This is the simplest stable convention for Phase 1 homebrew. Phase 2 may need a true physical-to-virtual mapping when the kernel allocates heap at 0x08000000.
+- **Segment-indexed relocation (`word >> 28`):** The 3DSX format encodes the target segment index in the upper 4 bits of each pointer word, NOT the source segment. This is required for correct cross-segment references (e.g., code pointing to rodata).
+
+### Current module state
+`load3DSX()` — **working** (full relocation pipeline).  
+`loadNCCH()` — **working** (ExeFS parse, no LZ11 decompression).  
+`loadELF()` — **stubbed** (unchanged, still returns failure).  
+`detectFormat()`, `loadFile()`, `load()`, `loadNCSD()` — **working** (unchanged from scaffold).
+
+### What the next agent needs to know
+1. **ExeFS offset is 0x180, not 0x1A0.** The task brief had it wrong. Check Lesson 1 before touching any NCCH parsing.
+2. **3DSX ABS reloc = `segBase[word >> 28] + (word & 0x0FFFFFFF)`.** Not a simple "add code base". See Lesson 2.
+3. **Always `pageAlignSize()` before `mapPages`.** `mapPages` silently maps zero pages if size is not a 4 KB multiple. See Lesson 3.
+4. **Pre-existing build errors in `audio.cpp` and `emulator.cpp` are unrelated to loader.** They existed before this task. Details: `audio.cpp:15 'min' not found` (missing `#include <algorithm>`); `emulator.cpp:89 Patcher::readFile not found` (API mismatch in Patcher usage).
+5. **Phase 2 must add LZ11 decompression** for `.code` sections that have the compression flag set in the NCCH ExHeader (bit 1 of system control info flags).
+
+### What was explicitly left out
+- LZ11 decompression for NCCH `.code` — deferred to Phase 2 via TODO comment
+- ELF loading — not in Phase 1 scope
+- BSS explicit zeroing — relies on `Memory::init()` zero-filling FCRAM, which is documented
+- ExHeader parsing (stack size, stack address, memory type) — not needed to reach `svcBreak` in Phase 1
 
 ---
 
