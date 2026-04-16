@@ -100,6 +100,7 @@ bool CPU::init(Memory& memory) {
 void CPU::reset() {
 #ifdef TRIDENT_USE_DYNARMIC
     if (impl->jit) {
+        impl->jit->ClearCache();
         impl->jit->Regs().fill(0);
         impl->jit->SetCpsr(0x00000010); // User mode (M=10000), ARM state (T=0)
     }
